@@ -34,7 +34,7 @@ The script uses platform-specific fallbacks where necessary. For example, it can
 
 ## Requirements
 
-- Python 3.6 or newer is recommended
+- Python 3.9 is recommended (as it was developed on that version)
 - Windows, macOS, or Linux
 
 The project dependencies are listed in [`requirements.txt`](requirements.txt):
