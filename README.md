@@ -25,10 +25,9 @@ The script uses platform-specific fallbacks where necessary. For example, it can
 ## Features
 
 - Cross-platform support for Windows, macOS, and Linux
-- No external dependency required for basic operation
-- Optional enhanced hardware and memory information through `psutil`
+- Enhanced hardware and memory information through `psutil`
 - Optional colored terminal output through `colorama`
-- Optional processor-brand detection through `py-cpuinfo`
+- Processor-brand detection through `py-cpuinfo`
 - Box or two-column table output
 - JSON output for scripts and automation
 - Graceful fallbacks when a platform-specific command or data source is unavailable
@@ -38,13 +37,25 @@ The script uses platform-specific fallbacks where necessary. For example, it can
 - Python 3.6 or newer is recommended
 - Windows, macOS, or Linux
 
-The core script relies on Python's standard library. Optional packages improve the amount of information SysVer can report:
+The project dependencies are listed in [`requirements.txt`](requirements.txt):
+
+- `psutil` — CPU, memory, and uptime information
+- `colorama` — colored terminal output
+- `py-cpuinfo` — processor-brand detection
+
+Install all dependencies with:
 
 ```bash
-python -m pip install psutil colorama py-cpuinfo
+python -m pip install -r requirements.txt
 ```
 
-Package availability is not required; SysVer catches missing optional modules and continues with the information available from the operating system.
+On some systems, use `python3` instead:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+The script handles unavailable optional system data gracefully, so some values may still be reported as `Unknown` if the operating system does not expose them.
 
 ## Usage
 
@@ -114,18 +125,19 @@ The terminal is cleared before formatted output is printed. JSON output is print
 ```text
 .
 ├── LICENSE
+├── requirements.txt
 ├── SysVer.slnx
 └── SysVer
     ├── SysVer.py
     └── SysVer.pyproj
 ```
 
-`SysVer.py` contains the complete utility, while `SysVer.pyproj` provides Visual Studio Python project configuration.
+`SysVer.py` contains the complete utility, `requirements.txt` lists its Python dependencies, and `SysVer.pyproj` provides Visual Studio Python project configuration.
 
 ## Limitations and notes
 
 - Some values depend on the operating system and available permissions.
-- CPU frequency, load average, memory statistics, and processor model may show `Unknown` when the platform does not expose them or optional packages are unavailable.
+- CPU frequency, load average, memory statistics, and processor model may show `Unknown` when the platform does not expose them or a dependency cannot provide them.
 - IP discovery reports non-loopback addresses and may not include every network interface.
 - The primary disk volume is inspected rather than every mounted volume.
 - Windows-specific probes rely on commands that may be missing or deprecated on newer installations. SysVer falls back gracefully when they cannot be run.
