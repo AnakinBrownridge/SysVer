@@ -32,6 +32,12 @@ The script uses platform-specific fallbacks where necessary. For example, it can
 - JSON output for scripts and automation
 - Graceful fallbacks when a platform-specific command or data source is unavailable
 
+## Screenshots
+
+![SysVer screenshot 1](https://github.com/AnakinBrownridge/SysVer/blob/main/Screenshot%202026-09-20%20163121.png?raw=true)
+
+![SysVer screenshot 2](https://github.com/AnakinBrownridge/SysVer/blob/main/Screenshot%202026-09-20%20163244.png?raw=true)
+
 ## Requirements
 
 - Python 3.9 is recommended (as it was developed on that version)
