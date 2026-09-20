@@ -77,6 +77,12 @@ On some systems, use `python3` instead:
 python3 SysVer/SysVer.py
 ```
 
+If Windows says `python` or `python3` is not found and Python 3 is available from the Start menu, try:
+
+```bash
+py SysVer/SysVer.py
+```
+
 ### Command-line options
 
 ```text
