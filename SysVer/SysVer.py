@@ -584,7 +584,7 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
         return text
 
     lines = []
-    header = "SysVer 2.0"
+    header = "SysVer 26.11 (2.0)"
     if use_color and COLOR_AVAILABLE:
         header = colorize(header, Fore.CYAN)
     lines.append(f"+{'-' * (width + 2)}+")
