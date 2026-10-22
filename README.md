@@ -1,6 +1,6 @@
 # SysVer
 
-SysVer is a cross-platform Python command-line utility that displays detailed information about the computer it is running on. It is designed for Windows, macOS, and Linux and presents the results in a readable terminal format or as machine-readable JSON.
+SysVer is a cross-platform Python command-line utility that displays detailed information about the computer it is running on. It is designed for Windows, macOS, and Linux and presents the results in a clear, human-readable format.
 
 ## What it reports
 
@@ -34,9 +34,7 @@ The script uses platform-specific fallbacks where necessary. For example, it can
 
 ## Screenshots
 
-![SysVer screenshot 1](https://github.com/AnakinBrownridge/SysVer/blob/main/Screenshot%202026-09-20%20163121.png?raw=true)
-
-![SysVer screenshot 2](https://github.com/AnakinBrownridge/SysVer/blob/main/Screenshot%202026-09-20%20163244.png?raw=true)
+![SysVer screenshot](https://github.com/AnakinBrownridge/SysVer/blob/main/Screenshot_2026-10-22_17-02-48.png?raw=true)
 
 ## Requirements
 
