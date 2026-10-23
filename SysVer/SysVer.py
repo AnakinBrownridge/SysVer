@@ -514,6 +514,21 @@ def colorize(text, color):
     return f"{color}{text}{Fore.RESET}"
 
 
+def color_metric(value, warn=75, critical=90, use_color=True):
+    if not use_color or not COLOR_AVAILABLE or value is None:
+        return str(value)
+    try:
+        pct = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    if pct >= critical:
+        return f"{Fore.RED}{value}{Fore.RESET}"
+    if pct >= warn:
+        return f"{Fore.YELLOW}{value}{Fore.RESET}"
+    return f"{Fore.GREEN}{value}{Fore.RESET}"
+
+
 def render_compact(info, use_color=True):
     status = get_system_health()
     color = Fore.GREEN if status == "Healthy" else Fore.YELLOW if status == "Warning" else Fore.RED
@@ -541,9 +556,8 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
         },
         get_disk_info(),
         get_cpu_info(),
-    )  # fallback for structure only, replaced below
+    )
 
-    # Build meaningful health from real values
     mem = get_memory_info()
     disk = get_disk_info()
     cpu = get_cpu_info()
@@ -552,7 +566,6 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
     health_label = health
     health_color = Fore.GREEN if health == "Healthy" else Fore.YELLOW if health == "Warning" else Fore.RED
 
-    # Column definitions
     left = [
         ("OS", info.get("Operating system", "Unknown")),
         ("Kernel", info.get("Kernel version", "Unknown")),
@@ -572,16 +585,6 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
     ]
 
     width = 78
-    pad = 1
-
-    def fmt_key_value(key, value, key_w=22, val_w=30):
-        s = f"{key}: {value}"
-        return s[: key_w + val_w + 2]
-
-    def color_text(text, color):
-        if use_color and COLOR_AVAILABLE:
-            return f"{color}{text}{Fore.RESET}"
-        return text
 
     lines = []
     header = "SysVer 26.11 (2.0)"
@@ -589,10 +592,12 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
         header = colorize(header, Fore.CYAN)
     lines.append(f"+{'-' * (width + 2)}+")
     lines.append(f"| {header:<{width}} |")
-    lines.append(f"| {'Status: ' + health_label:<{width}} |")
+    status_line = f"Status: {health_label}"
+    if use_color and COLOR_AVAILABLE:
+        status_line = colorize(status_line, health_color)
+    lines.append(f"| {status_line:<{width}} |")
     lines.append(f"+{'-' * (width + 2)}+")
 
-    # left/right panel
     max_rows = max(len(left), len(right))
     for i in range(max_rows):
         l = left[i] if i < len(left) else ("", "")
@@ -613,22 +618,33 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
 
     lines.append(f"+{'-' * (width + 2)}+")
 
-    # System stats
+    load_avg = cpu.get("load_avg")
+    load_first = load_avg[0] if isinstance(load_avg, (tuple, list)) and load_avg else None
+    mem_pct = mem.get("percent")
+    disk_pct = None
+    if disk.get("used") is not None and disk.get("total"):
+        disk_pct = (disk["used"] / disk["total"]) * 100.0
+
     system_rows = [
-        ("Load Avg", info.get("Load average (1m,5m,15m)", "Unknown")),
-        ("Memory", info.get("Memory (total/available/used)", "Unknown")),
-        ("Disk", info.get("Disk", "Unknown")),
+        ("Load Avg", info.get("Load average (1m,5m,15m)", "Unknown"), load_first, 2.0, 4.0),
+        ("Memory", info.get("Memory (total/available/used)", "Unknown"), mem_pct, 75.0, 90.0),
+        ("Disk", info.get("Disk", "Unknown"), disk_pct, 80.0, 95.0),
     ]
-    for key, value in system_rows:
+    for key, value, metric_value, warn, critical in system_rows:
+        if use_color and COLOR_AVAILABLE and metric_value is not None:
+            value_color = Fore.GREEN if metric_value < warn else Fore.YELLOW if metric_value < critical else Fore.RED
+            value_text = colorize(value, value_color)
+        else:
+            value_text = value
+
         if use_color and COLOR_AVAILABLE:
             key_text = colorize(key, Fore.CYAN)
-            lines.append(f"| {key_text:<20} {value:<{width - 22}} |")
+            lines.append(f"| {key_text:<20} {value_text:<{width - 22}} |")
         else:
             lines.append(f"| {key:<20} {value:<{width - 22}} |")
 
     lines.append(f"+{'-' * (width + 2)}+")
 
-    # Top processes (optional)
     if top_processes:
         lines.append("| Top Processes |")
         for proc in top_processes:
@@ -636,10 +652,13 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
             metric = f"CPU {proc['cpu']:.1f}%  RAM {proc['memory']:.1f}%"
             if use_color and COLOR_AVAILABLE:
                 label = colorize(label, Fore.GREEN)
+                metric = (
+                    f"CPU {color_metric(proc['cpu'], 50, 80, use_color=True)}%  "
+                    f"RAM {color_metric(proc['memory'], 50, 80, use_color=True)}%"
+                )
             lines.append(f"| {label:<30} {metric:<{width - 32}} |")
         lines.append(f"+{'-' * (width + 2)}+")
 
-    # Mount info
     if partitions:
         lines.append("| Filesystems |")
         for part in partitions[:3]:
@@ -648,10 +667,11 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
             used = format_bytes(part.get("used")) if part.get("used") is not None else "Unknown"
             pct = part.get("percent")
             pct_text = f"{pct:.1f}%" if pct is not None else "Unknown"
+            if use_color and COLOR_AVAILABLE and pct is not None:
+                pct_text = color_metric(pct, 80, 95, use_color=True) + "%"
             lines.append(f"| {mount:<20} {total:<12} used {used:<12} [{pct_text}] |")
         lines.append(f"+{'-' * (width + 2)}+")
 
-    # Network
     if interfaces:
         lines.append("| Interfaces |")
         for iface in interfaces[:4]:
