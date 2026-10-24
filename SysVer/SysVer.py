@@ -765,7 +765,7 @@ def render_box(info, use_color=True):
     border = "+" + "-" * (width - 2) + "+"
     lines = [border]
 
-    title = "SysVer 2.0"
+    title = "SysVer 26.11 (2.0)"
     if use_color and COLOR_AVAILABLE:
         title = colorize(title, Fore.CYAN)
     lines.append(f"| {title:<{width - 4}} |")
