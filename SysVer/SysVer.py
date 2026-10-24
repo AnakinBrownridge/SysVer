@@ -3,6 +3,7 @@ import datetime
 import json
 import os
 import platform
+import re
 import shutil
 import socket
 import subprocess
@@ -38,6 +39,9 @@ except Exception:
         RESET_ALL = ""
 
 
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
 def safe_getlogin():
     try:
         return os.getlogin()
@@ -45,11 +49,24 @@ def safe_getlogin():
         return os.environ.get("USER") or os.environ.get("USERNAME") or "Unknown"
 
 
+def visible_len(text):
+    return len(ANSI_RE.sub("", str(text)))
+
+
+def clamp_text(text, max_width):
+    text = str(text)
+    if visible_len(text) <= max_width:
+        return text
+    plain = ANSI_RE.sub("", text)
+    if max_width <= 1:
+        return plain[:max_width]
+    return plain[: max_width - 1] + "…"
+
+
 def get_user_full_name():
     """Return a display name for the current user."""
     username = os.environ.get("USERNAME") or os.environ.get("USER")
     if os.name == "nt" and username:
-        # Windows: wmic
         try:
             out = subprocess.check_output(
                 ["wmic", "useraccount", "where", f"name='{username}'", "get", "FullName"],
@@ -66,7 +83,6 @@ def get_user_full_name():
         except Exception:
             pass
 
-        # Windows: net user
         try:
             out = subprocess.check_output(
                 ["net", "user", username],
@@ -83,7 +99,6 @@ def get_user_full_name():
         except Exception:
             pass
 
-        # Windows: PowerShell
         try:
             out = subprocess.check_output(
                 ["powershell", "-NoProfile", "-Command", f"(Get-LocalUser -Name '{username}').FullName"],
@@ -259,7 +274,6 @@ def get_cpu_info():
 
 
 def get_processor_model():
-    """Return a user-friendly processor model name if available."""
     try:
         import cpuinfo
         info = cpuinfo.get_cpu_info()
@@ -269,7 +283,6 @@ def get_processor_model():
     except Exception:
         pass
 
-    # Linux /proc/cpuinfo
     try:
         if os.name != "nt" and os.path.exists("/proc/cpuinfo"):
             with open("/proc/cpuinfo", "r", encoding="utf-8", errors="ignore") as f:
@@ -284,7 +297,6 @@ def get_processor_model():
     except Exception:
         pass
 
-    # macOS
     try:
         if sys.platform == "darwin":
             out = subprocess.check_output(
@@ -298,7 +310,6 @@ def get_processor_model():
     except Exception:
         pass
 
-    # Windows
     try:
         if os.name == "nt":
             out = subprocess.check_output(
@@ -385,12 +396,7 @@ def get_network_interfaces():
         data = []
         for name, addrs in psutil.net_if_addrs().items():
             ips = [addr.address for addr in addrs if getattr(addr, "family", None) in (socket.AF_INET, socket.AF_INET6)]
-            data.append(
-                {
-                    "name": name,
-                    "ips": ips,
-                }
-            )
+            data.append({"name": name, "ips": ips})
         return data
     except Exception:
         return []
@@ -473,13 +479,18 @@ def get_sys_info():
     disk = get_disk_info()
     cpu = get_cpu_info()
     uptime = get_uptime()
+    tzname = datetime.datetime.now().astimezone().tzname() or "Unknown"
+    locale = os.environ.get("LANG") or os.environ.get("LC_ALL") or os.environ.get("LC_CTYPE") or "Unknown"
+    shell = os.environ.get("SHELL") or os.environ.get("COMSPEC") or "Unknown"
 
     info = {
         "Operating system": get_os_label(),
+        "Platform": platform.platform(),
         "Kernel version": uname.release or "Unknown",
         "Architecture": uname.machine or "Unknown",
         "Processor type": get_processor_model() or "Unknown",
         "Python version": platform.python_version(),
+        "Python executable": sys.executable or "Unknown",
         "User": get_user_full_name(),
         "Hostname": socket.gethostname(),
         "IP addresses": ", ".join(get_ip_addresses()),
@@ -489,6 +500,9 @@ def get_sys_info():
             if uptime is not None
             else "Unknown"
         ),
+        "Timezone": tzname,
+        "Locale": locale,
+        "Shell": shell,
         "CPU (physical/logical)": f"{cpu.get('physical') or '?'} / {cpu.get('logical') or '?'}",
         "CPU frequency (MHz)": f"{cpu['freq_mhz']:.1f}" if cpu.get("freq_mhz") else "Unknown",
         "Load average (1m,5m,15m)": (
@@ -499,11 +513,18 @@ def get_sys_info():
             if memory.get("total") is not None
             else "Unknown"
         ),
+        "Memory percent": f"{memory.get('percent')}%" if memory.get("percent") is not None else "Unknown",
         "Disk": (
             f"{format_bytes(disk.get('total'))} total, {format_bytes(disk.get('free'))} free ({disk.get('mount')})"
             if disk.get("total") is not None
             else "Unknown"
         ),
+        "Disk percent": (
+            f"{((disk['used'] / disk['total']) * 100.0):.1f}%"
+            if disk.get("used") is not None and disk.get("total")
+            else "Unknown"
+        ),
+        "System status": get_system_health(memory, disk, cpu),
     }
     return info
 
@@ -547,22 +568,10 @@ def render_compact(info, use_color=True):
 
 
 def render_dashboard(info, use_color=True, top_processes=None, partitions=None, interfaces=None):
-    health = get_system_health(
-        {
-            "total": None,
-            "available": None,
-            "used": None,
-            "percent": None,
-        },
-        get_disk_info(),
-        get_cpu_info(),
-    )
-
+    health = get_system_health(get_memory_info(), get_disk_info(), get_cpu_info())
     mem = get_memory_info()
     disk = get_disk_info()
     cpu = get_cpu_info()
-    health = get_system_health(mem, disk, cpu)
-
     health_label = health
     health_color = Fore.GREEN if health == "Healthy" else Fore.YELLOW if health == "Warning" else Fore.RED
 
@@ -584,8 +593,7 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
         ("CPU Freq", info.get("CPU frequency (MHz)", "Unknown")),
     ]
 
-    width = 78
-
+    width = 96
     lines = []
     header = "SysVer 26.11 (2.0)"
     if use_color and COLOR_AVAILABLE:
@@ -607,8 +615,8 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
 
         l_text = f"{l_key}: {l_val}" if l_key else ""
         r_text = f"{r_key}: {r_val}" if r_key else ""
-        l_text = l_text[:28]
-        r_text = r_text[:28]
+        l_text = l_text[:40]
+        r_text = r_text[:40]
 
         if use_color and COLOR_AVAILABLE:
             l_text = colorize(l_text, Fore.CYAN if i % 2 == 0 else Fore.YELLOW)
@@ -650,13 +658,15 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
         for proc in top_processes:
             label = f"{proc['name']} ({proc['pid']})"
             metric = f"CPU {proc['cpu']:.1f}%  RAM {proc['memory']:.1f}%"
+            color_label = label
+            color_metric_text = metric
             if use_color and COLOR_AVAILABLE:
-                label = colorize(label, Fore.GREEN)
-                metric = (
+                color_label = colorize(label, Fore.GREEN)
+                color_metric_text = (
                     f"CPU {color_metric(proc['cpu'], 50, 80, use_color=True)}%  "
                     f"RAM {color_metric(proc['memory'], 50, 80, use_color=True)}%"
                 )
-            lines.append(f"| {label:<30} {metric:<{width - 32}} |")
+            lines.append(f"| {color_label:<30} {color_metric_text:<{width - 32}} |")
         lines.append(f"+{'-' * (width + 2)}+")
 
     if partitions:
@@ -686,24 +696,35 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
 
 def render_box(info, use_color=True):
     items = list(info.items())
-    rows = [f"{k}: {v}" for k, v in items]
-    max_len = max(len(r) for r in rows)
-    width = max_len + 4
-    sep = "+" + "-" * (width - 2) + "+"
-    lines = [sep]
-    for k, v in items:
-        text = f"{k}: {v}"
+    width = 132
+    label_width = 30
+    border = "+" + "-" * (width - 2) + "+"
+    lines = [border]
+
+    title = "SysVer 2.0"
+    if use_color and COLOR_AVAILABLE:
+        title = colorize(title, Fore.CYAN)
+    lines.append(f"| {title:<{width - 4}} |")
+    lines.append(border)
+
+    for key, value in items:
+        label = f"{key}:"
+        value_text = str(value)
+
+        if visible_len(label) > label_width:
+            label = clamp_text(label, label_width)
+        if visible_len(value_text) > (width - label_width - 9):
+            value_text = clamp_text(value_text, width - label_width - 9)
+
         if use_color and COLOR_AVAILABLE:
-            label = Fore.CYAN + k + Fore.RESET
-            row_text = f"{label}: {v}"
-            raw = f"{k}: {v}"
-            padded = raw.ljust(width - 4)
-            colored = row_text.replace(f"{k}:", Fore.CYAN + k + Fore.RESET + ":")
-            colored_padded = colored.split(":", 1)[0] + ":" + padded[len(f"{k}:") :]
-            lines.append(f"| {colored_padded} |")
+            label_display = colorize(label, Fore.CYAN)
+            padded = max(0, width - 4 - visible_len(f"{label_display}: {value_text}"))
+            lines.append(f"| {label_display}: {value_text}{' ' * padded} |")
         else:
-            lines.append(f"| {text.ljust(width - 4)} |")
-    lines.append(sep)
+            padded = max(0, width - 4 - visible_len(f"{label} {value_text}"))
+            lines.append(f"| {label:<{label_width}} {value_text}{' ' * padded} |")
+
+    lines.append(border)
     return "\n".join(lines)
 
 
@@ -723,54 +744,80 @@ def render_table(info, use_color=True):
     return "\n".join(lines)
 
 
+def render_live(info, use_color=True):
+    lines = []
+    lines.append("SysVer Live")
+    for key, value in info.items():
+        if use_color and COLOR_AVAILABLE:
+            lines.append(f"{Fore.CYAN}{key}:{Fore.RESET} {value}")
+        else:
+            lines.append(f"{key}: {value}")
+    return "\n".join(lines)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="SysVer 2.0 - advanced system information utility")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
-    parser.add_argument("--format", choices=["box", "table", "dashboard", "compact"], default="dashboard", help="Output format")
+    parser.add_argument("--format", choices=["box", "table", "dashboard", "compact", "live"], default="box", help="Output format")
     parser.add_argument("--no-color", action="store_true", help="Disable ANSI colors")
     parser.add_argument("--verbose", action="store_true", help="Show additional debug information")
     parser.add_argument("--top-processes", type=int, default=5, help="Include N top processes")
     parser.add_argument("--export", metavar="PATH", help="Write JSON snapshot to file")
     parser.add_argument("--theme", choices=["auto", "dark", "light"], default="auto", help="Color theme preference")
+    parser.add_argument("--watch", action="store_true", help="Continuously refresh the display at a fixed interval")
+    parser.add_argument("--interval", type=float, default=2.0, help="Refresh interval in seconds for --watch mode")
     args = parser.parse_args(argv)
 
-    info = get_sys_info()
     use_color = not args.no_color
 
-    if args.export:
+    while True:
+        info = get_sys_info()
+
+        if args.export:
+            try:
+                with open(args.export, "w", encoding="utf-8") as f:
+                    json.dump(info, f, indent=2)
+            except Exception as exc:
+                print(f"Failed to export JSON: {exc}", file=sys.stderr)
+                return 1
+
+        if args.json:
+            print(json.dumps(info, indent=2))
+            if not args.watch:
+                return 0
+            time.sleep(args.interval)
+            continue
+
+        top_processes = get_top_processes(args.top_processes) if args.top_processes > 0 else []
+        partitions = get_disk_partitions()
+        interfaces = get_network_interfaces()
+
+        if args.format == "box":
+            out = render_box(info, use_color=use_color)
+        elif args.format == "table":
+            out = render_table(info, use_color=use_color)
+        elif args.format == "compact":
+            out = render_compact(info, use_color=use_color)
+        elif args.format == "live":
+            out = render_live(info, use_color=use_color)
+        else:
+            out = render_dashboard(info, use_color=use_color, top_processes=top_processes, partitions=partitions, interfaces=interfaces)
+
+        if not args.verbose:
+            try:
+                os.system("cls" if os.name == "nt" else "clear")
+            except Exception:
+                pass
+
+        print(out)
+
+        if not args.watch:
+            return 0
+
         try:
-            with open(args.export, "w", encoding="utf-8") as f:
-                json.dump(info, f, indent=2)
-        except Exception as exc:
-            print(f"Failed to export JSON: {exc}", file=sys.stderr)
-            return 1
-
-    if args.json:
-        print(json.dumps(info, indent=2))
-        return 0
-
-    top_processes = get_top_processes(args.top_processes) if args.top_processes > 0 else []
-    partitions = get_disk_partitions()
-    interfaces = get_network_interfaces()
-
-    if args.format == "box":
-        out = render_box(info, use_color=use_color)
-    elif args.format == "table":
-        out = render_table(info, use_color=use_color)
-    elif args.format == "compact":
-        out = render_compact(info, use_color=use_color)
-    else:
-        out = render_dashboard(info, use_color=use_color, top_processes=top_processes, partitions=partitions, interfaces=interfaces)
-
-    if not args.verbose:
-        try:
-            os.system("cls" if os.name == "nt" else "clear")
-        except Exception:
-            pass
-
-    print(out)
-
-    return 0
+            time.sleep(args.interval)
+        except KeyboardInterrupt:
+            return 0
 
 
 if __name__ == "__main__":
