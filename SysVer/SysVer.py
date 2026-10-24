@@ -18,44 +18,6 @@ except Exception:
 try:
     from colorama import init as _color_init, Fore, Style
     _color_init(autoreset=True)
-
-    _SOLARIZED = {
-        "BASE03": "\033[38;5;234m",
-        "BASE02": "\033[38;5;235m",
-        "BASE01": "\033[38;5;240m",
-        "BASE00": "\033[38;5;241m",
-        "BASE0": "\033[38;5;246m",
-        "BASE1": "\033[38;5;247m",
-        "BASE2": "\033[38;5;254m",
-        "BASE3": "\033[38;5;230m",
-        "YELLOW": "\033[38;5;136m",
-        "ORANGE": "\033[38;5;166m",
-        "RED": "\033[38;5;160m",
-        "MAGENTA": "\033[38;5;168m",
-        "VIOLET": "\033[38;5;61m",
-        "BLUE": "\033[38;5;33m",
-        "CYAN": "\033[38;5;37m",
-        "GREEN": "\033[38;5;100m",
-        "SOLARIZED_BASE03": "\033[38;5;234m",
-        "SOLARIZED_BASE02": "\033[38;5;235m",
-        "SOLARIZED_BASE01": "\033[38;5;240m",
-        "SOLARIZED_BASE00": "\033[38;5;241m",
-        "SOLARIZED_BASE0": "\033[38;5;246m",
-        "SOLARIZED_BASE1": "\033[38;5;247m",
-        "SOLARIZED_BASE2": "\033[38;5;254m",
-        "SOLARIZED_BASE3": "\033[38;5;230m",
-        "SOLARIZED_YELLOW": "\033[38;5;136m",
-        "SOLARIZED_ORANGE": "\033[38;5;166m",
-        "SOLARIZED_RED": "\033[38;5;160m",
-        "SOLARIZED_MAGENTA": "\033[38;5;168m",
-        "SOLARIZED_VIOLET": "\033[38;5;61m",
-        "SOLARIZED_BLUE": "\033[38;5;33m",
-        "SOLARIZED_CYAN": "\033[38;5;37m",
-        "SOLARIZED_GREEN": "\033[38;5;100m",
-    }
-    for _name, _value in _SOLARIZED.items():
-        if not hasattr(Fore, _name):
-            setattr(Fore, _name, _value)
     COLOR_AVAILABLE = True
 except Exception:
     COLOR_AVAILABLE = False
@@ -102,6 +64,49 @@ except Exception:
         DIM = ""
         RESET_ALL = ""
 
+SOLARIZED = {
+    "BASE03": "\033[38;5;234m",
+    "BASE02": "\033[38;5;235m",
+    "BASE01": "\033[38;5;240m",
+    "BASE00": "\033[38;5;241m",
+    "BASE0": "\033[38;5;246m",
+    "BASE1": "\033[38;5;247m",
+    "BASE2": "\033[38;5;254m",
+    "BASE3": "\033[38;5;230m",
+    "YELLOW": "\033[38;5;136m",
+    "ORANGE": "\033[38;5;166m",
+    "RED": "\033[38;5;160m",
+    "MAGENTA": "\033[38;5;168m",
+    "VIOLET": "\033[38;5;61m",
+    "BLUE": "\033[38;5;33m",
+    "CYAN": "\033[38;5;37m",
+    "GREEN": "\033[38;5;100m",
+    "SOLARIZED_BASE03": "\033[38;5;234m",
+    "SOLARIZED_BASE02": "\033[38;5;235m",
+    "SOLARIZED_BASE01": "\033[38;5;240m",
+    "SOLARIZED_BASE00": "\033[38;5;241m",
+    "SOLARIZED_BASE0": "\033[38;5;246m",
+    "SOLARIZED_BASE1": "\033[38;5;247m",
+    "SOLARIZED_BASE2": "\033[38;5;254m",
+    "SOLARIZED_BASE3": "\033[38;5;230m",
+    "SOLARIZED_YELLOW": "\033[38;5;136m",
+    "SOLARIZED_ORANGE": "\033[38;5;166m",
+    "SOLARIZED_RED": "\033[38;5;160m",
+    "SOLARIZED_MAGENTA": "\033[38;5;168m",
+    "SOLARIZED_VIOLET": "\033[38;5;61m",
+    "SOLARIZED_BLUE": "\033[38;5;33m",
+    "SOLARIZED_CYAN": "\033[38;5;37m",
+    "SOLARIZED_GREEN": "\033[38;5;100m",
+}
+
+for _name, _value in SOLARIZED.items():
+    if not hasattr(Fore, _name):
+        setattr(Fore, _name, _value)
+
+if not hasattr(Fore, "RESET"):
+    Fore.RESET = "\033[0m"
+if not hasattr(Style, "RESET_ALL"):
+    Style.RESET_ALL = "\033[0m"
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -127,8 +132,16 @@ def clamp_text(text, max_width):
     return plain[: max_width - 1] + "…"
 
 
+def pad_visible(text, width):
+    text = str(text)
+    plain = ANSI_RE.sub("", text)
+    if len(plain) >= width:
+        trimmed = clamp_text(text, width)
+        return trimmed + (" " * max(0, width - visible_len(trimmed)))
+    return text + (" " * max(0, width - len(plain)))
+
+
 def get_user_full_name():
-    """Return a display name for the current user."""
     username = os.environ.get("USERNAME") or os.environ.get("USER")
     if os.name == "nt" and username:
         try:
@@ -412,27 +425,14 @@ def get_disk_partitions():
                 try:
                     usage = psutil.disk_usage(part.mountpoint)
                     mounts.append(
-                        {
-                            "device": part.device,
-                            "mount": part.mountpoint,
-                            "fstype": part.fstype,
-                            "total": usage.total,
-                            "used": usage.used,
-                            "free": usage.free,
-                            "percent": (usage.used / usage.total * 100.0) if usage.total else 0,
-                        }
+                        {"device": part.device, "mount": part.mountpoint, "fstype": part.fstype,
+                         "total": usage.total, "used": usage.used, "free": usage.free,
+                         "percent": (usage.used / usage.total * 100.0) if usage.total else 0}
                     )
                 except Exception:
                     mounts.append(
-                        {
-                            "device": part.device,
-                            "mount": part.mountpoint,
-                            "fstype": part.fstype,
-                            "total": None,
-                            "used": None,
-                            "free": None,
-                            "percent": None,
-                        }
+                        {"device": part.device, "mount": part.mountpoint, "fstype": part.fstype,
+                         "total": None, "used": None, "free": None, "percent": None}
                     )
             return mounts
     except Exception:
@@ -440,15 +440,8 @@ def get_disk_partitions():
 
     root_usage = get_disk_info()
     mounts.append(
-        {
-            "device": "root",
-            "mount": root_usage.get("mount", "/"),
-            "fstype": "unknown",
-            "total": root_usage.get("total"),
-            "used": root_usage.get("used"),
-            "free": root_usage.get("free"),
-            "percent": None,
-        }
+        {"device": "root", "mount": root_usage.get("mount", "/"), "fstype": "unknown",
+         "total": root_usage.get("total"), "used": root_usage.get("used"), "free": root_usage.get("free"), "percent": None}
     )
     return mounts
 
@@ -475,14 +468,10 @@ def get_top_processes(limit=5):
             try:
                 info = proc.info
                 proc_list.append(
-                    {
-                        "pid": info.get("pid"),
-                        "name": info.get("name") or "unknown",
-                        "cpu": info.get("cpu_percent") or 0.0,
-                        "memory": info.get("memory_percent") or 0.0,
-                        "user": info.get("username") or "unknown",
-                        "cmdline": " ".join(info.get("cmdline") or [])[:80],
-                    }
+                    {"pid": info.get("pid"), "name": info.get("name") or "unknown",
+                     "cpu": info.get("cpu_percent") or 0.0, "memory": info.get("memory_percent") or 0.0,
+                     "user": info.get("username") or "unknown",
+                     "cmdline": " ".join(info.get("cmdline") or [])[:80]}
                 )
             except Exception:
                 continue
@@ -659,7 +648,7 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
 
     width = 96
     lines = []
-    header = "SysVer 26.11 (2.0)"
+    header = "SysVer 2.0"
     if use_color and COLOR_AVAILABLE:
         header = colorize(header, Fore.CYAN)
     lines.append(f"+{'-' * (width + 2)}+")
@@ -671,6 +660,8 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
     lines.append(f"+{'-' * (width + 2)}+")
 
     max_rows = max(len(left), len(right))
+    left_col = width // 2 - 1
+    right_col = width // 2 - 1
     for i in range(max_rows):
         l = left[i] if i < len(left) else ("", "")
         r = right[i] if i < len(right) else ("", "")
@@ -679,14 +670,14 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
 
         l_text = f"{l_key}: {l_val}" if l_key else ""
         r_text = f"{r_key}: {r_val}" if r_key else ""
-        l_text = l_text[:40]
-        r_text = r_text[:40]
 
         if use_color and COLOR_AVAILABLE:
             l_text = colorize(l_text, Fore.CYAN if i % 2 == 0 else Fore.YELLOW)
             r_text = colorize(r_text, Fore.CYAN if i % 2 == 0 else Fore.YELLOW)
 
-        lines.append(f"| {l_text:<{width // 2 - 1}} | {r_text:<{width // 2 - 1}} |")
+        l_text = pad_visible(l_text, left_col)
+        r_text = pad_visible(r_text, right_col)
+        lines.append(f"| {l_text} | {r_text} |")
 
     lines.append(f"+{'-' * (width + 2)}+")
 
@@ -711,7 +702,7 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
 
         if use_color and COLOR_AVAILABLE:
             key_text = colorize(key, Fore.CYAN)
-            lines.append(f"| {key_text:<20} {value_text:<{width - 22}} |")
+            lines.append(f"| {pad_visible(key_text, 20)} {pad_visible(value_text, width - 22)} |")
         else:
             lines.append(f"| {key:<20} {value:<{width - 22}} |")
 
@@ -722,15 +713,13 @@ def render_dashboard(info, use_color=True, top_processes=None, partitions=None, 
         for proc in top_processes:
             label = f"{proc['name']} ({proc['pid']})"
             metric = f"CPU {proc['cpu']:.1f}%  RAM {proc['memory']:.1f}%"
-            color_label = label
-            color_metric_text = metric
             if use_color and COLOR_AVAILABLE:
-                color_label = colorize(label, Fore.GREEN)
-                color_metric_text = (
+                label = colorize(label, Fore.GREEN)
+                metric = (
                     f"CPU {color_metric(proc['cpu'], 50, 80, use_color=True)}%  "
                     f"RAM {color_metric(proc['memory'], 50, 80, use_color=True)}%"
                 )
-            lines.append(f"| {color_label:<30} {color_metric_text:<{width - 32}} |")
+            lines.append(f"| {pad_visible(label, 30)} {pad_visible(metric, width - 32)} |")
         lines.append(f"+{'-' * (width + 2)}+")
 
     if partitions:
@@ -765,7 +754,7 @@ def render_box(info, use_color=True):
     border = "+" + "-" * (width - 2) + "+"
     lines = [border]
 
-    title = "SysVer 26.11 (2.0)"
+    title = "SysVer 2.0"
     if use_color and COLOR_AVAILABLE:
         title = colorize(title, Fore.CYAN)
     lines.append(f"| {title:<{width - 4}} |")
@@ -808,80 +797,53 @@ def render_table(info, use_color=True):
     return "\n".join(lines)
 
 
-def render_live(info, use_color=True):
-    lines = []
-    lines.append("SysVer Live")
-    for key, value in info.items():
-        if use_color and COLOR_AVAILABLE:
-            lines.append(f"{Fore.CYAN}{key}:{Fore.RESET} {value}")
-        else:
-            lines.append(f"{key}: {value}")
-    return "\n".join(lines)
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description="SysVer 2.0 - advanced system information utility")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
-    parser.add_argument("--format", choices=["box", "table", "dashboard", "compact", "live"], default="box", help="Output format")
+    parser.add_argument("--format", choices=["box", "table", "dashboard", "compact"], default="dashboard", help="Output format")
     parser.add_argument("--no-color", action="store_true", help="Disable ANSI colors")
     parser.add_argument("--verbose", action="store_true", help="Show additional debug information")
     parser.add_argument("--top-processes", type=int, default=5, help="Include N top processes")
     parser.add_argument("--export", metavar="PATH", help="Write JSON snapshot to file")
     parser.add_argument("--theme", choices=["auto", "dark", "light"], default="auto", help="Color theme preference")
-    parser.add_argument("--watch", action="store_true", help="Continuously refresh the display at a fixed interval")
-    parser.add_argument("--interval", type=float, default=2.0, help="Refresh interval in seconds for --watch mode")
     args = parser.parse_args(argv)
 
-    use_color = not args.no_color
+    info = get_sys_info()
+    use_color = not args.no_color and sys.stdout.isatty()
 
-    while True:
-        info = get_sys_info()
-
-        if args.export:
-            try:
-                with open(args.export, "w", encoding="utf-8") as f:
-                    json.dump(info, f, indent=2)
-            except Exception as exc:
-                print(f"Failed to export JSON: {exc}", file=sys.stderr)
-                return 1
-
-        if args.json:
-            print(json.dumps(info, indent=2))
-            if not args.watch:
-                return 0
-            time.sleep(args.interval)
-            continue
-
-        top_processes = get_top_processes(args.top_processes) if args.top_processes > 0 else []
-        partitions = get_disk_partitions()
-        interfaces = get_network_interfaces()
-
-        if args.format == "box":
-            out = render_box(info, use_color=use_color)
-        elif args.format == "table":
-            out = render_table(info, use_color=use_color)
-        elif args.format == "compact":
-            out = render_compact(info, use_color=use_color)
-        elif args.format == "live":
-            out = render_live(info, use_color=use_color)
-        else:
-            out = render_dashboard(info, use_color=use_color, top_processes=top_processes, partitions=partitions, interfaces=interfaces)
-
-        if not args.verbose:
-            try:
-                os.system("cls" if os.name == "nt" else "clear")
-            except Exception:
-                pass
-
-        print(out)
-
-        if not args.watch:
-            return 0
-
+    if args.export:
         try:
-            time.sleep(args.interval)
-        except KeyboardInterrupt:
-            return 0
+            with open(args.export, "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=2)
+        except Exception as exc:
+            print(f"Failed to export JSON: {exc}", file=sys.stderr)
+            return 1
+
+    if args.json:
+        print(json.dumps(info, indent=2))
+        return 0
+
+    top_processes = get_top_processes(args.top_processes) if args.top_processes > 0 else []
+    partitions = get_disk_partitions()
+    interfaces = get_network_interfaces()
+
+    if args.format == "box":
+        out = render_box(info, use_color=use_color)
+    elif args.format == "table":
+        out = render_table(info, use_color=use_color)
+    elif args.format == "compact":
+        out = render_compact(info, use_color=use_color)
+    else:
+        out = render_dashboard(info, use_color=use_color, top_processes=top_processes, partitions=partitions, interfaces=interfaces)
+
+    if not args.verbose:
+        try:
+            os.system("cls" if os.name == "nt" else "clear")
+        except Exception:
+            pass
+
+    print(out)
+    return 0
 
 
 if __name__ == "__main__":
