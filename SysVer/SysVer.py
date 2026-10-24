@@ -18,6 +18,44 @@ except Exception:
 try:
     from colorama import init as _color_init, Fore, Style
     _color_init(autoreset=True)
+
+    _SOLARIZED = {
+        "BASE03": "\033[38;5;234m",
+        "BASE02": "\033[38;5;235m",
+        "BASE01": "\033[38;5;240m",
+        "BASE00": "\033[38;5;241m",
+        "BASE0": "\033[38;5;246m",
+        "BASE1": "\033[38;5;247m",
+        "BASE2": "\033[38;5;254m",
+        "BASE3": "\033[38;5;230m",
+        "YELLOW": "\033[38;5;136m",
+        "ORANGE": "\033[38;5;166m",
+        "RED": "\033[38;5;160m",
+        "MAGENTA": "\033[38;5;168m",
+        "VIOLET": "\033[38;5;61m",
+        "BLUE": "\033[38;5;33m",
+        "CYAN": "\033[38;5;37m",
+        "GREEN": "\033[38;5;100m",
+        "SOLARIZED_BASE03": "\033[38;5;234m",
+        "SOLARIZED_BASE02": "\033[38;5;235m",
+        "SOLARIZED_BASE01": "\033[38;5;240m",
+        "SOLARIZED_BASE00": "\033[38;5;241m",
+        "SOLARIZED_BASE0": "\033[38;5;246m",
+        "SOLARIZED_BASE1": "\033[38;5;247m",
+        "SOLARIZED_BASE2": "\033[38;5;254m",
+        "SOLARIZED_BASE3": "\033[38;5;230m",
+        "SOLARIZED_YELLOW": "\033[38;5;136m",
+        "SOLARIZED_ORANGE": "\033[38;5;166m",
+        "SOLARIZED_RED": "\033[38;5;160m",
+        "SOLARIZED_MAGENTA": "\033[38;5;168m",
+        "SOLARIZED_VIOLET": "\033[38;5;61m",
+        "SOLARIZED_BLUE": "\033[38;5;33m",
+        "SOLARIZED_CYAN": "\033[38;5;37m",
+        "SOLARIZED_GREEN": "\033[38;5;100m",
+    }
+    for _name, _value in _SOLARIZED.items():
+        if not hasattr(Fore, _name):
+            setattr(Fore, _name, _value)
     COLOR_AVAILABLE = True
 except Exception:
     COLOR_AVAILABLE = False
@@ -32,6 +70,32 @@ except Exception:
         CYAN = ""
         WHITE = ""
         RESET = ""
+        BASE03 = ""
+        BASE02 = ""
+        BASE01 = ""
+        BASE00 = ""
+        BASE0 = ""
+        BASE1 = ""
+        BASE2 = ""
+        BASE3 = ""
+        ORANGE = ""
+        VIOLET = ""
+        SOLARIZED_BASE03 = ""
+        SOLARIZED_BASE02 = ""
+        SOLARIZED_BASE01 = ""
+        SOLARIZED_BASE00 = ""
+        SOLARIZED_BASE0 = ""
+        SOLARIZED_BASE1 = ""
+        SOLARIZED_BASE2 = ""
+        SOLARIZED_BASE3 = ""
+        SOLARIZED_YELLOW = ""
+        SOLARIZED_ORANGE = ""
+        SOLARIZED_RED = ""
+        SOLARIZED_MAGENTA = ""
+        SOLARIZED_VIOLET = ""
+        SOLARIZED_BLUE = ""
+        SOLARIZED_CYAN = ""
+        SOLARIZED_GREEN = ""
 
     class Style:
         BRIGHT = ""
